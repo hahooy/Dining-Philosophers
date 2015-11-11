@@ -190,7 +190,7 @@ void *init_phil(void *id)
 
 // create and initiate every philosopher thread, 
 // also make sure threads terminate properly
-void init()
+void initThreads()
 {
     display_title();
     // create thread for each philosopher
@@ -203,6 +203,34 @@ void init()
     }
 }
 
+// Allocate space for all arrays and initialize them
+void initAllArrays()
+{
+    states = (State *) malloc(N * sizeof(int));
+    forksReady = (pthread_cond_t *) malloc(N * sizeof(pthread_cond_t));
+    threads = (pthread_t *) malloc(N * sizeof(pthread_t));
+    eat_times = (int *) malloc(N * sizeof(int));
+    philosopherID = (int *) malloc(N * sizeof(int));
+
+
+    for(int i = 0; i < N; ++i) {
+	states[i] = THINKING;
+	pthread_cond_init(&forksReady[i], NULL);
+	philosopherID[i] = i;
+	eat_times[i] = 0;
+    }    
+}
+
+// free allocated memory
+void freeAllArrays()
+{
+    free(states);
+    free(forksReady);
+    free(threads);
+    free(eat_times);
+    free(philosopherID);
+}
+
 // main function
 int main(int argc, char *argv[])
 {
@@ -212,33 +240,11 @@ int main(int argc, char *argv[])
 	exit(1);
     }
     N = atoi(argv[1]);
-
-    // Initialize the semaphore access_activity
-    pthread_mutex_init(&access_activity, NULL);
-  
-    // Allocate space for all arrays
-    states = (State *) malloc(N * sizeof(int));
-    forksReady = (pthread_cond_t *) malloc(N * sizeof(pthread_cond_t));
-    threads = (pthread_t *) malloc(N * sizeof(pthread_t));
-    eat_times = (int *) malloc(N * sizeof(int));
-    philosopherID = (int *) malloc(N * sizeof(int));
-
-    // Initialize all the arrays
-    for(int i = 0; i < N; ++i) {
-	states[i] = THINKING;
-	pthread_cond_init(&forksReady[i], NULL);
-	philosopherID[i] = i;
-	eat_times[i] = 0;
-    }
-
-    init(); // run threads
-
-    // free allocated memory
-    free(states);
-    free(forksReady);
-    free(threads);
-    free(eat_times);
-    free(philosopherID);
+    
+    pthread_mutex_init(&access_activity, NULL);  // Initialize the semaphore access_activity
+    initAllArrays();
+    initThreads(); // initiate all threads
+    freeAllArrays();
 
     return 0;
 }
