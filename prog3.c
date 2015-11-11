@@ -28,9 +28,9 @@ int *eat_times; // the number of times each philosopher eats
 void printTitle()
 {
     printf("Eating Activity\n");
-
+    int i;
     // print the first digit, print a space if it is 0
-    for(int i = 0; i < N; ++i) {
+    for(i = 0; i < N; ++i) {
 	if (i >= 10) {
 	    printf("%d", i / 10);
 	} else {
@@ -40,7 +40,7 @@ void printTitle()
     printf("\n");
 
     // print the second digit
-    for(int i = 0; i < N; ++i) {
+    for(i = 0; i < N; ++i) {
 	printf("%d", i % 10);
     }
     printf("\n");
@@ -49,8 +49,9 @@ void printTitle()
 // Displays each philosopher's state
 void printActivity(int id, StartEnd a)
 {
+    int i;
     // print the state of each philosopher
-    for(int i = 0; i < N; ++i) {
+    for(i = 0; i < N; ++i) {
 	switch(activity[i]) {
 	case THINKING:
 	    printf(" ");
@@ -139,7 +140,8 @@ void eat()
 // and eating at least 3 times
 int isDone(void)
 {
-    for(int i = 0; i < N; ++i){
+    int i;
+    for(i = 0; i < N; ++i){
 	if(eat_times[i] < 3){
 	    return 0;
 	}
@@ -171,12 +173,13 @@ void *init_phil(void *id)
 void initThreads()
 {
     printTitle();
+    int i;
     // create thread for each philosopher
-    for(int i = 0; i < N; ++i){
+    for(i = 0; i < N; ++i){
 	pthread_create(&threads[i], NULL, init_phil, &philosopherID[i]);
     }
     //wait for all philosophers to complete eating
-    for(int i = 0; i < N; ++i){
+    for(i = 0; i < N; ++i){
 	pthread_join(threads[i], NULL);
     }
 }
@@ -190,8 +193,8 @@ void initAllArrays()
     eat_times = (int *) malloc(N * sizeof(int));
     philosopherID = (int *) malloc(N * sizeof(int));
 
-
-    for(int i = 0; i < N; ++i) {
+    int i;
+    for(i = 0; i < N; ++i) {
 	activity[i] = THINKING;
 	pthread_cond_init(&forksReady[i], NULL);
 	philosopherID[i] = i;
