@@ -118,11 +118,10 @@ int test(int id)
 // A philosopher must acquire the semaphore(fork) before eating
 void grab_forks(int id)
 {
-    pthread_mutex_lock(&access_activity);
-    activity[id] = WAITING;
-    // check if its neighbors are eating
-    // if left and right neighbors are indeed eating, wait 
-    // for them to finish
+    pthread_mutex_lock(&access_activity); // need a mutex to simulate a monitor, aqcuiring this mutex means we enter the monitor
+    activity[id] = WAITING; // indicate I am waiting to eat
+    // check if its neighbors are eating if left and right
+    // neighbors are indeed eating, wait for them to finish
     if (!test(id)){
 	pthread_cond_wait(&forksReady[id], &access_activity);
     } 
@@ -132,8 +131,8 @@ void grab_forks(int id)
 // A philosopher must release the semaphore(fork) after eating
 void release_forks(int id)
 {
-    pthread_mutex_lock(&access_activity);
-    activity[id] = THINKING;
+    pthread_mutex_lock(&access_activity); // enter the monitor
+    activity[id] = THINKING; // indicate I am thinking
     display_activity(id, END);
     // signal left neighbor can eat
     if (test(get_left_neighbor_id(id))){
@@ -179,7 +178,12 @@ void *init_phil(void *id)
 {
     int *philid = (int *) id;
     while(1){
-	if(isDone()) return NULL;
+	if(isDone()) {
+	    /* for (int i = 0; i < N; ++i) { */
+	    /* 	printf("%d ", eat_times[i]); */
+	    /* } */
+	    return NULL;
+	}
 	think();
 	grab_forks(*philid);
 	eat();
@@ -198,8 +202,8 @@ void initThreads()
 	pthread_create(&threads[i], NULL, init_phil, &philosopherID[i]);
     }
     //wait for all philosophers to complete eating
-    for(int j = 0; j < N; ++j){
-	pthread_join(threads[j], NULL);
+    for(int i = 0; i < N; ++i){
+	pthread_join(threads[i], NULL);
     }
 }
 
