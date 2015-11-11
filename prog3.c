@@ -13,13 +13,13 @@
 #include <pthread.h>
 #include <unistd.h>
 
-typedef enum {THINKING, EATING, WAITING} State; // identify what the philosopher is doing
+typedef enum {THINKING, EATING, WAITING} Activity; // identify what the philosopher is doing
 typedef enum {START, END} StartEnd; // does the philosopher start or end eating
 
 pthread_mutex_t access_activity; // semaphore lock
 pthread_cond_t *forksReady; // array of conditions for eating
 pthread_t *threads; // array of threads simulating the philosophers
-State *states; // an array containing the current state of each philosopher
+Activity *activity; // an array containing the current activity of each philosopher
 int N; // number of philosophers
 int *philosopherID; // An array of IDs
 int *eat_times; // the number of times each philosopher eats
@@ -47,11 +47,11 @@ void display_title()
 }
 
 // Displays each philosopher's state
-void display_states(int id, StartEnd a)
+void display_activity(int id, StartEnd a)
 {
     // print the state of each philosopher
     for(int i = 0; i < N; ++i) {
-	switch(states[i]) {
+	switch(activity[i]) {
 	case THINKING:
 	    printf(" ");
 	    break;
@@ -101,11 +101,11 @@ int get_right_neighbor_id(int myID)
 // left and right neighbors are not eating
 int test(int id)
 {
-    if(states[id] == WAITING){
-	if(states[get_left_neighbor_id(id)] != EATING && 
-	   states[get_right_neighbor_id(id)] != EATING){
-	    states[id] = EATING;
-	    display_states(id, START);
+    if(activity[id] == WAITING){
+	if(activity[get_left_neighbor_id(id)] != EATING && 
+	   activity[get_right_neighbor_id(id)] != EATING){
+	    activity[id] = EATING;
+	    display_activity(id, START);
 	    return 1;
 	}else{
 	    return 0;
@@ -119,7 +119,7 @@ int test(int id)
 void grab_forks(int id)
 {
     pthread_mutex_lock(&access_activity);
-    states[id] = WAITING;
+    activity[id] = WAITING;
     // check if its neighbors are eating
     // if left and right neighbors are indeed eating, wait 
     // for them to finish
@@ -133,8 +133,8 @@ void grab_forks(int id)
 void release_forks(int id)
 {
     pthread_mutex_lock(&access_activity);
-    states[id] = THINKING;
-    display_states(id, END);
+    activity[id] = THINKING;
+    display_activity(id, END);
     // signal left neighbor can eat
     if (test(get_left_neighbor_id(id))){
 	pthread_cond_signal(&forksReady[get_left_neighbor_id(id)]);
@@ -206,7 +206,7 @@ void initThreads()
 // Allocate space for all arrays and initialize them
 void initAllArrays()
 {
-    states = (State *) malloc(N * sizeof(int));
+    activity = (Activity *) malloc(N * sizeof(int));
     forksReady = (pthread_cond_t *) malloc(N * sizeof(pthread_cond_t));
     threads = (pthread_t *) malloc(N * sizeof(pthread_t));
     eat_times = (int *) malloc(N * sizeof(int));
@@ -214,7 +214,7 @@ void initAllArrays()
 
 
     for(int i = 0; i < N; ++i) {
-	states[i] = THINKING;
+	activity[i] = THINKING;
 	pthread_cond_init(&forksReady[i], NULL);
 	philosopherID[i] = i;
 	eat_times[i] = 0;
@@ -224,7 +224,7 @@ void initAllArrays()
 // free allocated memory
 void freeAllArrays()
 {
-    free(states);
+    free(activity);
     free(forksReady);
     free(threads);
     free(eat_times);
