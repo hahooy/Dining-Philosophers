@@ -17,10 +17,10 @@ typedef enum {THINKING, EATING, WAITING} State; // identify what the philosopher
 typedef enum {START, END} StartEnd; // does the philosopher start or end eating
 
 pthread_mutex_t access_activity; // semaphore lock
-pthread_cond_t *safe_to_eat; // array of conditions for eating
-pthread_t *phil_threads; // array of threads simulating the philosophers
-State *phil_state; // an array containing the current state of each philosopher
-int num_phils; // number of philosophers
+pthread_cond_t *forksReady; // array of conditions for eating
+pthread_t *threads; // array of threads simulating the philosophers
+State *states; // an array containing the current state of each philosopher
+int N; // number of philosophers
 int *philosopherID; // An array of IDs
 int *eat_times; // the number of times each philosopher eats
 
@@ -30,7 +30,7 @@ void display_title()
     printf("Eating Activity\n");
 
     // print the first digit, print a space if it is 0
-    for(int i = 0; i < num_phils; ++i) {
+    for(int i = 0; i < N; ++i) {
 	if (i >= 10) {
 	    printf("%d", i / 10);
 	} else {
@@ -40,17 +40,18 @@ void display_title()
     printf("\n");
 
     // print the second digit
-    for(int i = 0; i < num_phils; ++i) {
+    for(int i = 0; i < N; ++i) {
 	printf("%d", i % 10);
     }
     printf("\n");
 }
 
 // Displays each philosopher's state
-void display_states(int id, StartEnd a){
+void display_states(int id, StartEnd a)
+{
     // print the state of each philosopher
-    for(int i = 0; i < num_phils; i++){
-	switch(phil_state[i]) {
+    for(int i = 0; i < N; ++i) {
+	switch(states[i]) {
 	case THINKING:
 	    printf(" ");
 	    break;
@@ -83,14 +84,14 @@ void display_states(int id, StartEnd a){
 // Gets left philosopher's ID
 int get_left_neighbor_id(int myID)
 {
-    return (myID + 1) % num_phils;
+    return (myID + 1) % N;
 }
 
 // Gets right philosopher's ID
 int get_right_neighbor_id(int myID)
 {
     if (myID == 0) {
-	return num_phils - 1;
+	return N - 1;
     } else {
 	return myID - 1;
     }
@@ -98,12 +99,13 @@ int get_right_neighbor_id(int myID)
 
 // return true if philosopher is waiting and its 
 // left and right neighbors are not eating
-int test(int phil){
-    if(phil_state[phil] == WAITING){
-	if(phil_state[get_left_neighbor_id(phil)] != EATING && 
-	   phil_state[get_right_neighbor_id(phil)] != EATING){
-	    phil_state[phil] = EATING;
-	    display_states(phil, START);
+int test(int id)
+{
+    if(states[id] == WAITING){
+	if(states[get_left_neighbor_id(id)] != EATING && 
+	   states[get_right_neighbor_id(id)] != EATING){
+	    states[id] = EATING;
+	    display_states(id, START);
 	    return 1;
 	}else{
 	    return 0;
@@ -114,43 +116,47 @@ int test(int phil){
 }
 
 // A philosopher must acquire the semaphore(fork) before eating
-void grab_forks(int phil){
+void grab_forks(int id)
+{
     pthread_mutex_lock(&access_activity);
-    phil_state[phil] = WAITING;
+    states[id] = WAITING;
     // check if its neighbors are eating
     // if left and right neighbors are indeed eating, wait 
     // for them to finish
-    if (!test(phil)){
-	pthread_cond_wait(&safe_to_eat[phil], &access_activity);
+    if (!test(id)){
+	pthread_cond_wait(&forksReady[id], &access_activity);
     } 
     pthread_mutex_unlock(&access_activity);
 }
 
 // A philosopher must release the semaphore(fork) after eating
-void release_forks(int phil){
+void release_forks(int id)
+{
     pthread_mutex_lock(&access_activity);
-    phil_state[phil] = THINKING;
-    display_states(phil, END);
+    states[id] = THINKING;
+    display_states(id, END);
     // signal left neighbor can eat
-    if (test(get_left_neighbor_id(phil))){
-	pthread_cond_signal(&safe_to_eat[get_left_neighbor_id(phil)]);
+    if (test(get_left_neighbor_id(id))){
+	pthread_cond_signal(&forksReady[get_left_neighbor_id(id)]);
     }
     // signal right neighbor can eat
-    if (test(get_right_neighbor_id(phil))){
-	pthread_cond_signal(&safe_to_eat[get_right_neighbor_id(phil)]);
+    if (test(get_right_neighbor_id(id))){
+	pthread_cond_signal(&forksReady[get_right_neighbor_id(id)]);
     }
     pthread_mutex_unlock(&access_activity);
 }
 
 // a philosopher spends 2s to 10s thinking
-void think(){
+void think()
+{
     unsigned int seed = time(0);
     srand(seed);
     usleep(200000 + rand() % 800000);
 }
 
 // a philosopher spends 2s to 5s eating
-void eat(){
+void eat()
+{
     unsigned int seed = time(0);
     srand(seed);
     usleep(200000 + rand() % 300000);
@@ -158,8 +164,9 @@ void eat(){
 
 // check if every philosopher has done thinking 
 // and eating at least 3 times
-int isDone(void){
-    for(int i=0; i<num_phils; i++){
+int isDone(void)
+{
+    for(int i = 0; i < N; ++i){
 	if(eat_times[i] < 3){
 	    return 0;
 	}
@@ -168,7 +175,8 @@ int isDone(void){
 }
 
 // run the philosopher until the program finishes
-void *init_phil(void *id){
+void *init_phil(void *id)
+{
     int *philid = (int *) id;
     while(1){
 	if(isDone()) return NULL;
@@ -182,51 +190,53 @@ void *init_phil(void *id){
 
 // create and initiate every philosopher thread, 
 // also make sure threads terminate properly
-void init(){
+void init()
+{
     display_title();
     // create thread for each philosopher
-    for(int i = 0; i < num_phils; i++){
-	pthread_create(&phil_threads[i], NULL, init_phil, &philosopherID[i]);
+    for(int i = 0; i < N; ++i){
+	pthread_create(&threads[i], NULL, init_phil, &philosopherID[i]);
     }
     //wait for all philosophers to complete eating
-    for(int j = 0; j < num_phils; j++){
-	pthread_join(phil_threads[j], NULL);
+    for(int j = 0; j < N; ++j){
+	pthread_join(threads[j], NULL);
     }
 }
 
 // main function
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
     // command line args checking
     if(argc < 2){
 	printf("Usage: prog3 n ");
 	exit(1);
     }
-    num_phils = atoi(argv[1]);
+    N = atoi(argv[1]);
 
     // Initialize the semaphore access_activity
     pthread_mutex_init(&access_activity, NULL);
   
-    // Create all of the arrays
-    phil_state = (State *) malloc(num_phils * sizeof(int));
-    safe_to_eat = (pthread_cond_t *) malloc(num_phils * sizeof(pthread_cond_t));
-    phil_threads = (pthread_t *) malloc(num_phils * sizeof(pthread_t));
-    eat_times = (int *) malloc(num_phils * sizeof(int));
-    philosopherID = (int *) malloc(num_phils * sizeof(int));
+    // Allocate space for all arrays
+    states = (State *) malloc(N * sizeof(int));
+    forksReady = (pthread_cond_t *) malloc(N * sizeof(pthread_cond_t));
+    threads = (pthread_t *) malloc(N * sizeof(pthread_t));
+    eat_times = (int *) malloc(N * sizeof(int));
+    philosopherID = (int *) malloc(N * sizeof(int));
 
     // Initialize all the arrays
-    for(int phil = 0; phil < num_phils; phil++){
-	phil_state[phil] = THINKING;
-	pthread_cond_init(&safe_to_eat[phil], NULL);
-	philosopherID[phil] = phil;
-	eat_times[phil] = 0;
+    for(int i = 0; i < N; ++i) {
+	states[i] = THINKING;
+	pthread_cond_init(&forksReady[i], NULL);
+	philosopherID[i] = i;
+	eat_times[i] = 0;
     }
 
     init(); // run threads
 
     // free allocated memory
-    free(phil_state);
-    free(safe_to_eat);
-    free(phil_threads);
+    free(states);
+    free(forksReady);
+    free(threads);
     free(eat_times);
     free(philosopherID);
 
