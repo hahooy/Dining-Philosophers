@@ -97,21 +97,16 @@ int get_right_neighbor_id(int myID)
     }
 }
 
-// return true if philosopher is waiting and its 
-// left and right neighbors are not eating
-int test(int id)
+// if a philosopher is waiting and its left and right neighbors are not eating,
+// change it to eating state and signal it to eat. Otherwise keep it in waiting state.
+void test(int id)
 {
-    if(activity[id] == WAITING){
-	if(activity[get_left_neighbor_id(id)] != EATING && 
-	   activity[get_right_neighbor_id(id)] != EATING){
-	    activity[id] = EATING;
-	    display_activity(id, START);
-	    return 1;
-	}else{
-	    return 0;
-	}
-    }else{
-	return 0;
+    if(activity[id] == WAITING &&
+       activity[get_left_neighbor_id(id)] != EATING && 
+       activity[get_right_neighbor_id(id)] != EATING) {
+	activity[id] = EATING;
+	display_activity(id, START);
+	pthread_cond_signal(&forksReady[id]);
     }
 }
 
@@ -122,7 +117,8 @@ void grab_forks(int id)
     activity[id] = WAITING; // indicate I am waiting to eat
     // check if its neighbors are eating if left and right
     // neighbors are indeed eating, wait for them to finish
-    if (!test(id)){
+    test(id);
+    if (activity[id] == WAITING) {
 	pthread_cond_wait(&forksReady[id], &access_activity);
     } 
     pthread_mutex_unlock(&access_activity);
@@ -133,15 +129,9 @@ void release_forks(int id)
 {
     pthread_mutex_lock(&access_activity); // enter the monitor
     activity[id] = THINKING; // indicate I am thinking
-    display_activity(id, END);
-    // signal left neighbor can eat
-    if (test(get_left_neighbor_id(id))){
-	pthread_cond_signal(&forksReady[get_left_neighbor_id(id)]);
-    }
-    // signal right neighbor can eat
-    if (test(get_right_neighbor_id(id))){
-	pthread_cond_signal(&forksReady[get_right_neighbor_id(id)]);
-    }
+    display_activity(id, END);    
+    test(get_left_neighbor_id(id)); // signal left neighbor can eat    
+    test(get_right_neighbor_id(id)); // signal right neighbor can eat
     pthread_mutex_unlock(&access_activity);
 }
 
