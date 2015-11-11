@@ -4,7 +4,7 @@
 //Yilong Hu (hu.yilong@wustl.edu)
 //Yongzheng Huang (iamhuangyz@gmail.com)
 //Junyuan Suo (jsuo.mail@gmail.com)
-//File Purpose: prog3.cpp defines a series of functions to simulate 
+//File Purpose: prog3.c defines a series of functions to simulate 
 //the dining philosophers without deadlock or starvation
 //The program is able to handle n philosophers to eat, where n > 0
 
@@ -16,8 +16,8 @@
 typedef enum {THINKING, EATING, WAITING} Activity; // identify what the philosopher is doing
 typedef enum {START, END} StartEnd; // does the philosopher start or end eating
 
-pthread_mutex_t access_activity; // semaphore lock
-pthread_cond_t *forksReady; // array of conditions for eating
+pthread_mutex_t access_activity; // binary semaphore, needed for implementing the monitor
+pthread_cond_t *forksReady; // array of conditions variables for eating
 pthread_t *threads; // array of threads simulating the philosophers
 Activity *activity; // an array containing the current activity of each philosopher
 int N; // number of philosophers
@@ -25,7 +25,7 @@ int *philosopherID; // An array of IDs
 int *eat_times; // the number of times each philosopher eats
 
 // Displays the title for the state change table
-void display_title()
+void printTitle()
 {
     printf("Eating Activity\n");
 
@@ -47,7 +47,7 @@ void display_title()
 }
 
 // Displays each philosopher's state
-void display_activity(int id, StartEnd a)
+void printActivity(int id, StartEnd a)
 {
     // print the state of each philosopher
     for(int i = 0; i < N; ++i) {
@@ -81,37 +81,21 @@ void display_activity(int id, StartEnd a)
     fflush(stdout);
 }
 
-// Gets left philosopher's ID
-int get_left_neighbor_id(int myID)
-{
-    return (myID + 1) % N;
-}
-
-// Gets right philosopher's ID
-int get_right_neighbor_id(int myID)
-{
-    if (myID == 0) {
-	return N - 1;
-    } else {
-	return myID - 1;
-    }
-}
-
 // if a philosopher is waiting and its left and right neighbors are not eating,
-// change it to eating state and signal it to eat. Otherwise keep it in waiting state.
+// change it to eating state and signal it to eat. Otherwise keep it in its current state.
 void test(int id)
 {
     if(activity[id] == WAITING &&
-       activity[get_left_neighbor_id(id)] != EATING && 
-       activity[get_right_neighbor_id(id)] != EATING) {
+       activity[(id + 1) % N] != EATING && 
+       activity[(id == 0) ? N - 1 : id - 1] != EATING) {
 	activity[id] = EATING;
-	display_activity(id, START);
+	printActivity(id, START);
 	pthread_cond_signal(&forksReady[id]);
     }
 }
 
 // A philosopher must acquire the semaphore(fork) before eating
-void grab_forks(int id)
+void pickUpForks(int id)
 {
     pthread_mutex_lock(&access_activity); // need a mutex to simulate a monitor, aqcuiring this mutex means we enter the monitor
     activity[id] = WAITING; // indicate I am waiting to eat
@@ -125,13 +109,13 @@ void grab_forks(int id)
 }
 
 // A philosopher must release the semaphore(fork) after eating
-void release_forks(int id)
+void putDownForks(int id)
 {
     pthread_mutex_lock(&access_activity); // enter the monitor
     activity[id] = THINKING; // indicate I am thinking
-    display_activity(id, END);    
-    test(get_left_neighbor_id(id)); // signal left neighbor can eat    
-    test(get_right_neighbor_id(id)); // signal right neighbor can eat
+    printActivity(id, END);    
+    test((id + 1) % N); // signal right neighbor can eat if it is waiting, move on otherwise
+    test((id == 0) ? N - 1 : id - 1); // signal left neighbor can eat if it is waiting, move on otherwise
     pthread_mutex_unlock(&access_activity);
 }
 
@@ -175,10 +159,10 @@ void *init_phil(void *id)
 	    return NULL;
 	}
 	think();
-	grab_forks(*philid);
+	pickUpForks(*philid);
 	eat();
 	eat_times[*philid]++;
-	release_forks(*philid);
+	putDownForks(*philid);
     }
 }
 
@@ -186,7 +170,7 @@ void *init_phil(void *id)
 // also make sure threads terminate properly
 void initThreads()
 {
-    display_title();
+    printTitle();
     // create thread for each philosopher
     for(int i = 0; i < N; ++i){
 	pthread_create(&threads[i], NULL, init_phil, &philosopherID[i]);
